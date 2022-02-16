@@ -1,9 +1,9 @@
 on: workflow_dispatch
-  inputs:
-      websiteURL:
-        description: "What Website Screen ?"
-        required: true
-        default: "https://tai-studio.netlify.app/"
+inputs:
+    websiteURL:
+      description: "What Website Screen ?"
+      required: true
+      default: "https://tai-studio.netlify.app/"
 name: Screen Website
 jobs:
   render:
