@@ -5,6 +5,14 @@ on:
         description: "What Website Screen ?"
         required: true
         default: "https://tai-studio.netlify.app/"
+      width:
+        description: "What Website Width Size ?"
+        required: true
+        default: "1920"
+      height:
+        description: "What Website Height Size ?"
+        required: true
+        default: "1080"
 name: Screen Website
 jobs:
   render:
@@ -16,6 +24,7 @@ jobs:
         with:
           node-version: '16'
       - run: sudo apt update
+      - run: sudo apt upgrade
       - run: npm install
       - run: npm run screen -- --props="$WORKFLOW_INPUT"
         env:
