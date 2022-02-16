@@ -8,16 +8,16 @@ dotenv.config();
         process.env.websiteURL = 'https://tai-studio.netlify.app/';
     }
     if(process.env.width != null){
-        process.env.width = 1920;
+        process.env.width = '1920';
     }
     if(process.env.height != null){
-        process.env.height = 1080;
+        process.env.height = '1080';
     }
 
     const browser = await puppeteer.launch({
         defaultViewport: {
-          width:process.env.width,
-          height:process.env.height
+          width:parseInt(process.env.width),
+          height:parseInt(process.env.height)
         }
     });
     const page = await browser.newPage();
