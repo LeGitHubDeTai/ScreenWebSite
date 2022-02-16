@@ -1,5 +1,5 @@
-on: workflow_dispatch
-inputs:
+workflow_dispatch:
+  inputs:
     websiteURL:
       description: "What Website Screen ?"
       required: true
