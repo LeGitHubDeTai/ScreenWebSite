@@ -1,0 +1,27 @@
+{
+  "name": "screenwebsite",
+  "version": "1.0.0",
+  "description": "screen web site",
+  "main": "main.js",
+  "scripts": {
+    "screen": "node main.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LeGitHubDeTai/ScreenWebSite.git"
+  },
+  "keywords": [
+    "Screen",
+    "WebSite",
+    "OpenSource"
+  ],
+  "author": "Tai Tetsuyuki",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/LeGitHubDeTai/ScreenWebSite/issues"
+  },
+  "homepage": "https://github.com/LeGitHubDeTai/ScreenWebSite#readme",
+  "dependencies": {
+    "dotenv": "^16.0.0"
+  }
+}
