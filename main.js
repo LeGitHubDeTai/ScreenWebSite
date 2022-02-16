@@ -16,8 +16,8 @@ dotenv.config();
 
     const browser = await puppeteer.launch({
         defaultViewport: {
-          width:parseInt(process.env.width),
-          height:parseInt(process.env.height)
+          width: 1920,
+          height: 1080
         }
     });
     const page = await browser.newPage();
