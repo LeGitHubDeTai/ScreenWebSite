@@ -4,6 +4,7 @@
   "description": "screen web site",
   "main": "main.js",
   "scripts": {
+    "start": "node main.js",
     "screen": "node main.js"
   },
   "repository": {
