@@ -1,1 +1,1 @@
-bat `npm install && npm run screen`
+bat 'npm install && npm run screen'
