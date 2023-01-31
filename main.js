@@ -11,9 +11,16 @@
 const puppeteer = require('puppeteer');
 require('dotenv').config();
 
-console.log(process.env);
-
 (async () => {
+    if(process.env.WORKFLOW_INPUT != null){
+        var tmp = JSON.parse(process.env.WORKFLOW_INPUT);
+        process.env.websiteURL = tmp.websiteURL;
+        process.env.width = tmp.width;
+        process.env.height = tmp.height;
+
+        console.log('Run With Github Action !');
+    }
+
     if(process.env.websiteURL == null){
         process.env.websiteURL = 'https://tai-studio.netlify.app/';
     }
