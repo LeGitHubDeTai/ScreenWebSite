@@ -9,9 +9,9 @@
 \-------------------------------------------------------------------------------------------------------------*/
 
 const puppeteer = require('puppeteer');
-const dotenv = require('dotenv');
+require('dotenv').config();
 
-dotenv.config();
+console.log(process.env);
 
 (async () => {
     if(process.env.websiteURL == null){
