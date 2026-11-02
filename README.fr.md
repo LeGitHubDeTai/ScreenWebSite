@@ -46,11 +46,21 @@ npm start
 
 ### Avec des options
 
+**Syntaxe par drapeaux** — ne contient aucun guillemet : elle se comporte à l'identique sous PowerShell, cmd, bash et zsh :
+
+```sh
+npm run screen -- --websiteURL=https://taistudio.fr --width=1600 --height=900 --fullpage=false
+```
+
+**Syntaxe JSON** — un objet unique, pratique sous Linux et macOS :
+
 ```sh
 npm run screen -- --props='{"websiteURL":"https://taistudio.fr","width":1600,"height":900,"fullpage":false}'
 ```
 
 > ⚠️ Le `--` est obligatoire : il indique à npm de transmettre ce qui suit au script.
+>
+> 💻 **PowerShell et cmd avalent les guillemets** du JSON — utilisez la syntaxe par drapeaux, qui est aussi la plus courte.
 
 ### Options
 
@@ -61,6 +71,8 @@ npm run screen -- --props='{"websiteURL":"https://taistudio.fr","width":1600,"he
 | `height` | entier | `1080` | Hauteur du viewport, en pixels |
 | `fullpage` | booléen | `true` | `true` = toute la page défilable · `false` = la zone visible uniquement |
 
+Chaque option peut être passée sous la forme `--option=valeur`, ou via l'objet JSON `--props`.
+
 `fullpage` accepte `true` / `false`, `1` / `0`, `yes` / `no`, `on` / `off` (sans distinction de casse).
 
 ### Sources de configuration
@@ -69,12 +81,13 @@ Les valeurs sont résolues dans cet ordre — la première source qui fournit un
 
 | # | Source | Usage courant |
 | --- | --- | --- |
-| 1 | Argument `--props='{...}'` | exécution ponctuelle depuis un terminal |
-| 2 | Variable d'environnement `WORKFLOW_INPUT` | définie automatiquement par GitHub Actions |
-| 3 | Fichier `.env` (chargé par [dotenv](https://github.com/motdotla/dotenv)) | configuration locale persistante |
-| 4 | Valeurs par défaut | rien de configuré |
+| 1 | Drapeaux `--option=valeur` | surcharge rapide, fonctionne dans tous les shells |
+| 2 | Argument JSON `--props='{...}'` | plusieurs options en une fois |
+| 3 | Variable d'environnement `WORKFLOW_INPUT` | définie automatiquement par GitHub Actions |
+| 4 | Fichier `.env` (chargé par [dotenv](https://github.com/motdotla/dotenv)) | configuration locale persistante |
+| 5 | Valeurs par défaut | rien de configuré |
 
-Si une source contient du JSON invalide, la suivante est essayée automatiquement ; une erreur explicite n'est levée que si **toutes** les sources échouent.
+Si une source contient du JSON invalide, la suivante est essayée automatiquement — les drapeaux restent utilisables. Une erreur explicite n'est levée que si **rien** n'a pu être lu.
 
 ### Utiliser un fichier `.env`
 
@@ -91,11 +104,13 @@ fullpage=true
 
 `.env` est ignoré par git — votre configuration ne quitte jamais votre machine.
 
-> 💻 **Windows / PowerShell** : PowerShell supprime les guillemets du JSON, préférez donc le fichier `.env`. Si vous avez besoin de la ligne de commande, échappez les guillemets avec une barre oblique inverse :
+> 💻 **Windows / PowerShell** : si vous préférez tout de même la syntaxe JSON, échappez les guillemets avec une barre oblique inverse :
 >
 > ```powershell
 > npm run screen -- '--props={\"websiteURL\":\"https://taistudio.fr\",\"fullpage\":false}'
 > ```
+>
+> ou reposez simplement sur un fichier `.env` — les deux fonctionnent avec `npm start`.
 
 ## 🤖 Exécuter via GitHub Actions
 
@@ -120,13 +135,15 @@ Le workflow se trouve dans [`.github/workflows/screen.yml`](.github/workflows/sc
 3. La page est chargée puis capturée dans `screen.png`
 4. En CI, le fichier est téléversé en artifact
 
+> 🛡️ Certains systèmes interdisent le sandbox de Chrome (Ubuntu 23.10+, AppArmor restreignant les user namespaces, runners de CI). Chromium est alors relancé automatiquement une fois avec `--no-sandbox`.
+
 ## 🧪 Tests
 
 ```sh
 npm test
 ```
 
-La suite couvre chaque source de configuration, les replis entre elles, les valeurs par défaut, le traitement des valeurs invalides et les dimensions réelles produites par `fullpage` (zone visible vs. page entière).
+La suite couvre chaque source de configuration, les replis entre elles, les valeurs par défaut, le traitement des valeurs invalides, les dimensions réelles produites par `fullpage` (zone visible vs. page entière) et la relance automatique `--no-sandbox`.
 
 ## 📁 Structure du projet
 
@@ -136,6 +153,7 @@ ScreenWebSite/
 │   └── workflows/
 │       └── screen.yml        # Workflow GitHub Actions
 ├── .env.example              # modèle de configuration
+├── browser.js                # lancement de Chromium + repli sans sandbox
 ├── main.js                   # point d'entrée (Puppeteer)
 ├── test-env.js               # suite de tests
 ├── package.json
@@ -147,7 +165,8 @@ ScreenWebSite/
 
 | Symptôme | Solution |
 | --- | --- |
-| `Impossible de lire les propriétés JSON` | Le shell a mangé les guillemets — voir la note PowerShell ci-dessus, ou utilisez un fichier `.env` |
+| `Impossible de lire les propriétés JSON` | Le shell a mangé les guillemets — passez à la syntaxe par drapeaux (`--websiteURL=...`) ou utilisez un fichier `.env` |
+| `No usable sandbox!` | Pris en charge automatiquement : Chromium est relancé avec `--no-sandbox` |
 | Les valeurs de mon `.env` sont ignorées | `--props` et `WORKFLOW_INPUT` priment sur `.env` |
 | Où est la capture ? | `screen.png`, à la racine du projet (ignoré par git) |
 

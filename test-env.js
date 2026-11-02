@@ -12,6 +12,8 @@ const os = require('os');
 const path = require('path');
 const { pathToFileURL } = require('url');
 
+const { launchBrowser, NO_SANDBOX_ARGS } = require('./browser.js');
+
 const MAIN = path.join(__dirname, 'main.js');
 
 // Les tests tournent dans un dossier temporaire : le ".env" local (non tracké)
@@ -90,7 +92,31 @@ const cases = [
     },
     { label: 'fullpage=false via variable env', args: [], env: { fullpage: 'false' }, exit: 0, expect: '[viewport only]' },
     { label: 'fullpage=true via variable env', args: [], env: { fullpage: 'yes' }, exit: 0, expect: '[full page]' },
-    { label: 'fullpage booleen JSON false', args: ['--props={"fullpage":false}'], exit: 0, expect: '[viewport only]' }
+    { label: 'fullpage booleen JSON false', args: ['--props={"fullpage":false}'], exit: 0, expect: '[viewport only]' },
+    {
+        label: 'flags sans guillemet (commande PowerShell)',
+        args: [
+            '--websiteURL=https://example.com',
+            '--width=1280',
+            '--height=720',
+            '--fullpage=false'
+        ],
+        exit: 0,
+        expect: 'Screen https://example.com (1280x720) [viewport only]'
+    },
+    {
+        label: 'flags prioritaires sur --props',
+        args: ['--props={"websiteURL":"https://example.com","width":1000}', '--websiteURL=https://example.org'],
+        exit: 0,
+        expect: 'Screen https://example.org (1000x1080)'
+    },
+    {
+        label: 'JSON casse + flags -> quand meme utilisable',
+        args: ['--props={broken', '--websiteURL=https://example.com'],
+        exit: 0,
+        expect: 'Screen https://example.com (1920x1080)'
+    },
+    { label: 'hint PowerShell dans le message', args: ['--props={broken'], exit: 1, expect: 'Utilisez plutôt la syntaxe sans guillemet' }
 ];
 
 let failed = 0;
@@ -159,12 +185,101 @@ for (const c of captures) {
     console.log(`  ${ok ? 'OK ' : 'KO '} ${c.label} -> ${size ? `${size.width}x${size.height}` : 'n/a'}`);
 }
 
-console.log(failed === 0 ? '\nTOUS LES TESTS PASSENT' : `\n${failed} TEST(S) EN ECHEC`);
+(async () => {
+    console.log('\n--- Relance sans sandbox ---');
 
-try {
-    fs.rmSync(TMP, { recursive: true, force: true });
-} catch (error) {
-    // le dossier temporaire sera purgé par le système
-}
+    // Erreur identique à celle produite par @puppeteer/browsers : le message
+    // contient le stderr de Chrome, donc "No usable sandbox!"
+    const sandboxError = new Error(
+        [
+            'Failed to launch the browser process:  Code: null',
+            '',
+            'stderr:',
+            'FATAL:content/browser/zygote_host/zygote_host_impl_linux.cc:130] No usable sandbox!',
+            'If you are running on Ubuntu 23.10+ ...',
+            '',
+            'TROUBLESHOOTING: https://pptr.dev/troubleshooting'
+        ].join('\n')
+    );
 
-process.exit(failed === 0 ? 0 : 1);
+    const otherError = new Error('Could not find Chrome (ver. 156.0.8078.47)');
+
+    function fakeLauncher(behaviour) {
+        const calls = [];
+        return {
+            calls,
+            launch: async (options) => {
+                calls.push(options);
+                return behaviour(calls.length);
+            }
+        };
+    }
+
+    function caught(promise) {
+        return promise.then(
+            () => null,
+            (error) => error
+        );
+    }
+
+    // Capture les avertissements pour vérifier le message de relance
+    const warnings = [];
+    const realWarn = console.warn;
+    console.warn = (...args) => warnings.push(args.join(' '));
+
+    const sandboxTests = [];
+
+    // 1. échec sandbox -> une relance avec --no-sandbox
+    {
+        const t = fakeLauncher((n) => (n === 1 ? Promise.reject(sandboxError) : 'browser-sans-sandbox'));
+        const result = await launchBrowser({ defaultViewport: { width: 800 } }, t.launch);
+        const ok =
+            result === 'browser-sans-sandbox' &&
+            t.calls.length === 2 &&
+            NO_SANDBOX_ARGS.every((a) => (t.calls[1].args || []).includes(a)) &&
+            (t.calls[0].args || []).length === 0;
+        sandboxTests.push({ label: 'erreur sandbox -> relance avec --no-sandbox', ok, detail: `appels=${t.calls.length}` });
+    }
+
+    // 2. autre erreur -> pas de relance, l'erreur d'origine est propagée
+    {
+        const t = fakeLauncher(() => Promise.reject(otherError));
+        const error = await caught(launchBrowser({}, t.launch));
+        const ok = error === otherError && t.calls.length === 1;
+        sandboxTests.push({ label: 'autre erreur -> propagée sans relance', ok, detail: `appels=${t.calls.length}` });
+    }
+
+    // 3. déjà --no-sandbox -> pas de boucle infinie
+    {
+        const t = fakeLauncher(() => Promise.reject(sandboxError));
+        const error = await caught(launchBrowser({ args: ['--no-sandbox'] }, t.launch));
+        const ok = error === sandboxError && t.calls.length === 1;
+        sandboxTests.push({ label: 'deja --no-sandbox -> pas de boucle infinie', ok, detail: `appels=${t.calls.length}` });
+    }
+
+    // 4. lancement normal -> aucun argument ajouté
+    {
+        const t = fakeLauncher(() => 'browser');
+        const result = await launchBrowser({ defaultViewport: { width: 800 } }, t.launch);
+        const ok = result === 'browser' && t.calls.length === 1 && (t.calls[0].args || []).length === 0;
+        sandboxTests.push({ label: 'lancement normal -> aucun changement', ok, detail: `appels=${t.calls.length}` });
+    }
+
+    console.warn = realWarn;
+    if (warnings.length) console.log(`  (avertissement) ${warnings[0]}`);
+
+    for (const t of sandboxTests) {
+        if (!t.ok) failed++;
+        console.log(`  ${t.ok ? 'OK ' : 'KO '} ${t.label} (${t.detail})`);
+    }
+
+    console.log(failed === 0 ? '\nTOUS LES TESTS PASSENT' : `\n${failed} TEST(S) EN ECHEC`);
+
+    try {
+        fs.rmSync(TMP, { recursive: true, force: true });
+    } catch (error) {
+        // le dossier temporaire sera purgé par le système
+    }
+
+    process.exit(failed === 0 ? 0 : 1);
+})();

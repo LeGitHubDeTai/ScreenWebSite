@@ -46,11 +46,21 @@ npm start
 
 ### With options
 
+**Flag syntax** — contains no quote, so it behaves identically in PowerShell, cmd, bash and zsh:
+
+```sh
+npm run screen -- --websiteURL=https://taistudio.fr --width=1600 --height=900 --fullpage=false
+```
+
+**JSON syntax** — a single object, handy on Linux and macOS:
+
 ```sh
 npm run screen -- --props='{"websiteURL":"https://taistudio.fr","width":1600,"height":900,"fullpage":false}'
 ```
 
 > ⚠️ The `--` is required: it tells npm to forward everything that follows to the script.
+>
+> 💻 **PowerShell and cmd swallow the double quotes** of the JSON — use the flag syntax there. It is also the shortest.
 
 ### Options
 
@@ -61,6 +71,8 @@ npm run screen -- --props='{"websiteURL":"https://taistudio.fr","width":1600,"he
 | `height` | integer | `1080` | Viewport height, in pixels |
 | `fullpage` | boolean | `true` | `true` = the entire scrollable page · `false` = the viewport only |
 
+Every option can be passed as `--option=value`, or through the `--props` JSON object.
+
 `fullpage` accepts `true` / `false`, `1` / `0`, `yes` / `no`, `on` / `off` (case-insensitive).
 
 ### Configuration sources
@@ -69,12 +81,13 @@ Values are resolved in this order — the first source that provides a value win
 
 | # | Source | Typical use |
 | --- | --- | --- |
-| 1 | `--props='{...}'` command-line argument | one-off run from a terminal |
-| 2 | `WORKFLOW_INPUT` environment variable | set automatically by GitHub Actions |
-| 3 | `.env` file (loaded by [dotenv](https://github.com/motdotla/dotenv)) | persistent local configuration |
-| 4 | Built-in defaults | nothing configured |
+| 1 | `--option=value` command-line flags | quick override, works in every shell |
+| 2 | `--props='{...}'` JSON argument | several options at once |
+| 3 | `WORKFLOW_INPUT` environment variable | set automatically by GitHub Actions |
+| 4 | `.env` file (loaded by [dotenv](https://github.com/motdotla/dotenv)) | persistent local configuration |
+| 5 | Built-in defaults | nothing configured |
 
-If a source contains invalid JSON, the next one is tried automatically; an explicit error is raised only when every source fails.
+If a source contains invalid JSON, the next one is tried automatically — the flags still apply. An explicit error is raised only when nothing could be read at all.
 
 ### Using a `.env` file
 
@@ -91,11 +104,13 @@ fullpage=true
 
 `.env` is git-ignored — your configuration never leaves your machine.
 
-> 💻 **Windows / PowerShell:** PowerShell strips the double quotes from the JSON, so prefer the `.env` file. If you need the CLI, escape the quotes with a backslash:
+> 💻 **Windows / PowerShell:** if you still want to use the JSON syntax, escape the quotes with a backslash:
 >
 > ```powershell
 > npm run screen -- '--props={\"websiteURL\":\"https://taistudio.fr\",\"fullpage\":false}'
 > ```
+>
+> or simply rely on a `.env` file — both are covered by `npm start`.
 
 ## 🤖 Run with GitHub Actions
 
@@ -120,13 +135,15 @@ The workflow lives in [`.github/workflows/screen.yml`](.github/workflows/screen.
 3. The page is loaded and captured to `screen.png`
 4. In CI, the file is uploaded as an artifact
 
+> 🛡️ Some systems forbid Chrome's sandbox (Ubuntu 23.10+, AppArmor restricting user namespaces, CI runners). Chromium is then automatically relaunched once with `--no-sandbox`.
+
 ## 🧪 Tests
 
 ```sh
 npm test
 ```
 
-The suite covers every configuration source, the fallback between them, the default values, the invalid-value handling and the actual pixel dimensions produced by `fullpage` (viewport vs. full page).
+The suite covers every configuration source, the fallback between them, the default values, the invalid-value handling, the actual pixel dimensions produced by `fullpage` (viewport vs. full page) and the automatic `--no-sandbox` retry.
 
 ## 📁 Project structure
 
@@ -136,6 +153,7 @@ ScreenWebSite/
 │   └── workflows/
 │       └── screen.yml        # GitHub Actions workflow
 ├── .env.example              # configuration template
+├── browser.js                # Chromium launch + sandbox fallback
 ├── main.js                   # entry point (Puppeteer)
 ├── test-env.js               # test suite
 ├── package.json
@@ -147,7 +165,8 @@ ScreenWebSite/
 
 | Symptom | Fix |
 | --- | --- |
-| `Impossible de lire les propriétés JSON` | The shell ate the quotes — see the PowerShell note above, or use a `.env` file |
+| `Impossible de lire les propriétés JSON` | The shell ate the quotes — switch to the flag syntax (`--websiteURL=...`) or use a `.env` file |
+| `No usable sandbox!` | Handled automatically: Chromium is relaunched with `--no-sandbox` |
 | My `.env` values are ignored | `--props` and `WORKFLOW_INPUT` take precedence over `.env` |
 | Where is the screenshot? | `screen.png`, in the project root (git-ignored) |
 

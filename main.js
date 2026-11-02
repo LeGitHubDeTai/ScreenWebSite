@@ -6,8 +6,8 @@
 |     /    `.__/| /      \___.'   \__/ `._/| `___,' /  `._.'      /___, /`---' /___, `._.' |
 |                                                 `                                        |
 \-----------------------------------------------------------------------------------------*/
-const puppeteer = require('puppeteer');
 require('dotenv').config();
+const { launchBrowser } = require('./browser');
 
 const DEFAULT_URL = 'https://taistudio.fr';
 const DEFAULT_WIDTH = 1920;
@@ -22,7 +22,15 @@ function parseProps(raw) {
         try {
             return JSON.parse(raw.replace(/\\n/g, ' '));
         } catch (fallbackError) {
-            throw new Error(`Impossible de lire les propriétés JSON : ${raw}`);
+            // Cas classique de PowerShell/cmd : les guillemets du JSON sont
+            // absorbés par le shell avant même d'atteindre Node.
+            const hint = raw.includes('"')
+                ? ''
+                : '\nAstuce : les guillemets ont été retirés par le shell (PowerShell/cmd). ' +
+                  'Utilisez plutôt la syntaxe sans guillemet : --websiteURL=... --width=... ' +
+                  'ou un fichier .env.';
+
+            throw new Error(`Impossible de lire les propriétés JSON : ${raw}${hint}`);
         }
     }
 }
@@ -43,26 +51,51 @@ function getSources() {
     return sources;
 }
 
-// Lit les propriétés : argument "--props={...}" puis variable d'environnement WORKFLOW_INPUT.
-// Si une source est illisible (JSON altéré par le shell, par exemple), on passe à la suivante.
+// Lit les options passées une par une : --websiteURL=... --width=1600 ...
+// Cette syntaxe ne contient aucun guillemet, donc aucun shell ne peut l'altérer :
+// elle fonctionne sous PowerShell, cmd, bash et zsh à l'identique.
+function readFlags() {
+    const flags = {};
+
+    for (const arg of process.argv.slice(2)) {
+        const match = /^--([A-Za-z][A-Za-z0-9]*)=(.*)$/.exec(arg);
+        if (match === null || match[1] === 'props') continue;
+        flags[match[1]] = match[2];
+    }
+
+    return flags;
+}
+
+// Lit les propriétés : options "--key=value", puis "--props={...}", puis
+// variable d'environnement WORKFLOW_INPUT.
+// Si une source JSON est illisible (quinte mangée par le shell, par exemple),
+// on passe à la suivante ; les options sans guillemet restent utilisables.
 function readProps() {
     const sources = getSources();
+    const flags = readFlags();
     let firstError = null;
+    let parsed = {};
+    let parsedOk = false;
 
     for (const source of sources) {
         try {
-            return parseProps(source.raw);
+            parsed = parseProps(source.raw);
+            parsedOk = true;
+            break;
         } catch (error) {
             firstError = firstError || error;
             console.warn(`Source "${source.name}" illisible, on essaie la suivante...`);
         }
     }
 
-    if (firstError !== null) {
+    // On ne lève l'erreur que si AUCUNE source n'a pu être lue et que les
+    // options sans guillemet ne peuvent pas sauver la mise
+    if (!parsedOk && firstError !== null && Object.keys(flags).length === 0) {
         throw firstError;
     }
 
-    return {};
+    // Les options --key=value passent devant : explicites et shell-indépendantes
+    return { ...parsed, ...flags };
 }
 
 // Convertit une valeur en entier positif, sinon renvoie la valeur par défaut
@@ -107,7 +140,7 @@ function toBool(value, fallback) {
 
     console.log(`Screen ${websiteURL} (${width}x${height}) [${fullPage ? 'full page' : 'viewport only'}]`);
 
-    const browser = await puppeteer.launch({
+    const browser = await launchBrowser({
         defaultViewport: {
             width: width,
             height: height
