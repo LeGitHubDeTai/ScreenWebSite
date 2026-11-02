@@ -18,6 +18,11 @@ on:
         required: false
         type: boolean
         default: true
+      delay:
+        description: "Seconds to wait after page load before capturing (lets animations finish)"
+        required: false
+        type: number
+        default: 5
 name: Screen Website
 jobs:
   render:
@@ -34,7 +39,11 @@ jobs:
       - run: npm run screen -- --props="$WORKFLOW_INPUT"
         env:
           WORKFLOW_INPUT: ${{ toJson(github.event.inputs) }}
+      # archive: false -> le PNG est téléversé tel quel, sans conteneur .zip
+      # retention-days: 1 -> l'artefact expire au bout d'un jour
+      # (sans "name" : avec archive: false, le nom du fichier devient le nom de l'artefact)
       - uses: actions/upload-artifact@v7
         with:
-          name: screen
           path: screen.png
+          archive: false
+          retention-days: 1

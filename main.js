@@ -13,6 +13,7 @@ const DEFAULT_URL = 'https://taistudio.fr';
 const DEFAULT_WIDTH = 1920;
 const DEFAULT_HEIGHT = 1080;
 const DEFAULT_FULLPAGE = true;
+const DEFAULT_DELAY = 5; // secondes
 
 // Analyse une chaîne JSON : certains shells laissent des "\n" littéraux
 function parseProps(raw) {
@@ -120,6 +121,17 @@ function toBool(value, fallback) {
     return fallback;
 }
 
+// Convertit une valeur en nombre de secondes >= 0, sinon renvoie la valeur par défaut.
+// 0 est une valeur valide : on ne doit surtout pas le confondre avec "non défini".
+function toSeconds(value, fallback) {
+    if (value === undefined || value === null || value === '') {
+        return fallback;
+    }
+
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
 (async () => {
     const props = readProps();
 
@@ -137,8 +149,11 @@ function toBool(value, fallback) {
         props.fullpage !== undefined ? props.fullpage : process.env.fullpage,
         DEFAULT_FULLPAGE
     );
+    const delay = toSeconds(props.delay !== undefined ? props.delay : process.env.delay, DEFAULT_DELAY);
 
-    console.log(`Screen ${websiteURL} (${width}x${height}) [${fullPage ? 'full page' : 'viewport only'}]`);
+    console.log(
+        `Screen ${websiteURL} (${width}x${height}) [${fullPage ? 'full page' : 'viewport only'}] - ${delay}s`
+    );
 
     const browser = await launchBrowser({
         defaultViewport: {
@@ -149,6 +164,14 @@ function toBool(value, fallback) {
     const page = await browser.newPage();
     await page.setViewport({ width: width, height: height });
     await page.goto(websiteURL);
+
+    // Laisse le temps aux animations et au chargement asynchrone de finir
+    // avant de capturer (0 = capture immédiate)
+    if (delay > 0) {
+        console.log(`Attente de ${delay}s avant la capture...`);
+        await new Promise((resolve) => setTimeout(resolve, delay * 1000));
+    }
+
     await page.screenshot({ path: 'screen.png', fullPage: fullPage });
 
     await browser.close();

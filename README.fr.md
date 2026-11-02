@@ -20,7 +20,7 @@
 - 📐 **Dimensions personnalisées** — définissez la largeur et la hauteur du viewport
 - 🔌 **Trois façons de configurer** — argument en ligne de commande, variables d'environnement, ou le formulaire GitHub Actions
 - ⚙️ **Prêt à l'emploi** — valeurs par défaut raisonnables, aucune configuration obligatoire
-- 🤖 **Pensé pour la CI** — la capture est téléchargeable en artifact
+- 🤖 **Pensé pour la CI** — la capture est téléchargeable en artifact, conservée 1 jour
 
 ## 📦 Prérequis
 
@@ -70,6 +70,7 @@ npm run screen -- --props='{"websiteURL":"https://taistudio.fr","width":1600,"he
 | `width` | entier | `1920` | Largeur du viewport, en pixels |
 | `height` | entier | `1080` | Hauteur du viewport, en pixels |
 | `fullpage` | booléen | `true` | `true` = toute la page défilable · `false` = la zone visible uniquement |
+| `delay` | nombre | `5` | Secondes d'attente après le chargement de la page, le temps que les animations et le chargement asynchrone se terminent (`0` = capture immédiate) |
 
 Chaque option peut être passée sous la forme `--option=valeur`, ou via l'objet JSON `--props`.
 
@@ -100,6 +101,7 @@ websiteURL=https://taistudio.fr
 width=1920
 height=1080
 fullpage=true
+delay=5
 ```
 
 `.env` est ignoré par git — votre configuration ne quitte jamais votre machine.
@@ -119,7 +121,7 @@ Le workflow se trouve dans [`.github/workflows/screen.yml`](.github/workflows/sc
 1. Ouvrez l'onglet **Actions** du dépôt
 2. Sélectionnez **Screen Website** dans la barre latérale
 3. Cliquez sur **Run workflow**, remplissez le formulaire et validez
-4. Une fois le run terminé, téléchargez l'artifact **`screen`** — il contient `screen.png`
+4. Une fois le run terminé, téléchargez l'artifact **`screen.png`** — l'image brute, téléversée telle quelle (sans archive `.zip`) et conservée **1 jour**
 
 | Entrée | Type | Défaut | Description |
 | --- | --- | --- | --- |
@@ -127,12 +129,13 @@ Le workflow se trouve dans [`.github/workflows/screen.yml`](.github/workflows/sc
 | `width` | chaîne | `1920` | Largeur du viewport, en pixels |
 | `height` | chaîne | `1080` | Hauteur du viewport, en pixels |
 | `fullpage` | booléen | `true` | Capturer la page entière au lieu de la seule zone visible |
+| `delay` | nombre | `5` | Secondes d'attente après le chargement avant la capture |
 
 ## 🔧 Fonctionnement
 
 1. La configuration est lue depuis les sources ci-dessus, par ordre de priorité
 2. Puppeteer lance un Chromium headless avec le viewport demandé
-3. La page est chargée puis capturée dans `screen.png`
+3. La page est chargée, puis attend `delay` secondes le temps que les animations et le chargement asynchrone se terminent, avant d'être capturée dans `screen.png`
 4. En CI, le fichier est téléversé en artifact
 
 > 🛡️ Certains systèmes interdisent le sandbox de Chrome (Ubuntu 23.10+, AppArmor restreignant les user namespaces, runners de CI). Chromium est alors relancé automatiquement une fois avec `--no-sandbox`.

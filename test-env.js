@@ -21,17 +21,29 @@ const MAIN = path.join(__dirname, 'main.js');
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'screenweb-'));
 
 // Variables retirées de l'environnement pour repartir de zéro
-const RESET = ['websiteURL', 'width', 'height', 'fullpage', 'WORKFLOW_INPUT'];
+const RESET = ['websiteURL', 'width', 'height', 'fullpage', 'delay', 'WORKFLOW_INPUT'];
 
 function run(args, env) {
     const baseEnv = { ...process.env };
     for (const key of RESET) delete baseEnv[key];
 
+    // La plupart des tests ne portent pas sur le délai : on force delay=0 pour
+    // ne pas perdre 5 s par exécution. Un test qui veut le défaut réel passe
+    // `delay: null`, ce qui supprime la variable.
+    baseEnv.delay = '0';
+
+    for (const [key, value] of Object.entries(env || {})) {
+        if (value === null) delete baseEnv[key];
+        else baseEnv[key] = value;
+    }
+
+    const started = Date.now();
     const r = spawnSync(process.execPath, [MAIN, ...args], {
         encoding: 'utf8',
         cwd: TMP,
-        env: { ...baseEnv, ...(env || {}) }
+        env: baseEnv
     });
+    const elapsed = Date.now() - started;
 
     const raw = (r.stdout || '') + (r.stderr || '');
     // Aplatir les sauts de ligne : une URL peut en contenir (échappement JSON)
@@ -40,8 +52,8 @@ function run(args, env) {
     const matches = flat.match(/Screen .*?\[(?:full page|viewport only)\]/g) || [];
     const out = matches.join(' | ') || flat.slice(0, 160);
 
-    console.log(`exit=${r.status} :: ${out}`);
-    return { status: r.status, out, flat };
+    console.log(`exit=${r.status} (${elapsed}ms) :: ${out}`);
+    return { status: r.status, out, flat, elapsed };
 }
 
 // Lit la taille (en pixels) d'un PNG via son en-tête IHDR
@@ -183,6 +195,54 @@ for (const c of captures) {
 
     if (!ok) failed++;
     console.log(`  ${ok ? 'OK ' : 'KO '} ${c.label} -> ${size ? `${size.width}x${size.height}` : 'n/a'}`);
+}
+
+console.log('\n--- Délai avant capture ---');
+
+// `env: { delay: null }` supprime la variable : on mesure alors le défaut réel.
+// Le délai se lit dans le log ("- 5s") ET dans le temps d'exécution.
+const delayTests = [
+    {
+        label: 'delay=0 -> capture immédiate',
+        args: ['--delay=0', '--websiteURL=https://example.com'],
+        env: { delay: null },
+        expect: '- 0s',
+        maxMs: 5000
+    },
+    {
+        label: 'aucune valeur -> défaut 5 s',
+        args: [],
+        env: { delay: null },
+        expect: '- 5s',
+        minMs: 5000
+    },
+    {
+        label: 'valeur invalide -> repli sur 5 s',
+        args: ['--delay=abc'],
+        env: { delay: null },
+        expect: '- 5s',
+        minMs: 5000
+    },
+    {
+        label: 'delay via variable d\'environnement',
+        args: [],
+        env: { delay: '1' },
+        expect: '- 1s',
+        minMs: 1000
+    }
+];
+
+for (const c of delayTests) {
+    const r = run(c.args, c.env);
+    let ok = r.status === 0 && r.flat.includes(c.expect);
+    if (ok && c.minMs !== undefined && r.elapsed < c.minMs) ok = false;
+    if (ok && c.maxMs !== undefined && r.elapsed >= c.maxMs) ok = false;
+    if (!ok) failed++;
+    console.log(
+        `  ${ok ? 'OK ' : 'KO '} ${c.label} (${r.elapsed}ms` +
+            `${c.minMs !== undefined ? `, attendu >= ${c.minMs}` : ''}` +
+            `${c.maxMs !== undefined ? `, attendu < ${c.maxMs}` : ''})`
+    );
 }
 
 (async () => {

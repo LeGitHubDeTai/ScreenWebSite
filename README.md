@@ -20,7 +20,7 @@
 - 📐 **Custom dimensions** — set the viewport width and height you need
 - 🔌 **Three ways to configure** — CLI argument, environment variables, or the GitHub Actions form
 - ⚙️ **Works out of the box** — sensible defaults, zero configuration required
-- 🤖 **CI ready** — the screenshot is uploaded as a downloadable artifact
+- 🤖 **CI ready** — the screenshot is uploaded as a downloadable artifact, kept for 1 day
 
 ## 📦 Requirements
 
@@ -70,6 +70,7 @@ npm run screen -- --props='{"websiteURL":"https://taistudio.fr","width":1600,"he
 | `width` | integer | `1920` | Viewport width, in pixels |
 | `height` | integer | `1080` | Viewport height, in pixels |
 | `fullpage` | boolean | `true` | `true` = the entire scrollable page · `false` = the viewport only |
+| `delay` | number | `5` | Seconds to wait after the page loads, so animations and async loading can finish (`0` = capture immediately) |
 
 Every option can be passed as `--option=value`, or through the `--props` JSON object.
 
@@ -100,6 +101,7 @@ websiteURL=https://taistudio.fr
 width=1920
 height=1080
 fullpage=true
+delay=5
 ```
 
 `.env` is git-ignored — your configuration never leaves your machine.
@@ -119,7 +121,7 @@ The workflow lives in [`.github/workflows/screen.yml`](.github/workflows/screen.
 1. Open the **Actions** tab of the repository
 2. Select **Screen Website** in the sidebar
 3. Click **Run workflow**, fill in the form and hit the green button
-4. Once the run finishes, download the **`screen`** artifact — it contains `screen.png`
+4. Once the run finishes, download the **`screen.png`** artifact — the raw image, uploaded as-is (no `.zip`) and kept for **1 day**
 
 | Input | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -127,12 +129,13 @@ The workflow lives in [`.github/workflows/screen.yml`](.github/workflows/screen.
 | `width` | string | `1920` | Viewport width, in pixels |
 | `height` | string | `1080` | Viewport height, in pixels |
 | `fullpage` | boolean | `true` | Capture the full page instead of only the viewport |
+| `delay` | number | `5` | Seconds to wait after page load before capturing |
 
 ## 🔧 How it works
 
 1. Configuration is read from the sources above, in priority order
 2. Puppeteer launches a headless Chromium with the requested viewport
-3. The page is loaded and captured to `screen.png`
+3. The page is loaded, then waits `delay` seconds for animations and async loading to finish before being captured to `screen.png`
 4. In CI, the file is uploaded as an artifact
 
 > 🛡️ Some systems forbid Chrome's sandbox (Ubuntu 23.10+, AppArmor restricting user namespaces, CI runners). Chromium is then automatically relaunched once with `--no-sandbox`.
