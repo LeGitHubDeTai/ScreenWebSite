@@ -13,6 +13,11 @@ on:
         description: "What Website Height Size ?"
         required: true
         default: "1080"
+      fullpage:
+        description: "Capture the full page instead of only the viewport"
+        required: false
+        type: boolean
+        default: true
 name: Screen Website
 jobs:
   render:

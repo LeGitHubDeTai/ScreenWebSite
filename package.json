@@ -1,11 +1,12 @@
 {
   "name": "screenwebsite",
-  "version": "26.11.1",
+  "version": "26.11.2",
   "description": "screen web site",
   "main": "main.js",
   "scripts": {
     "start": "node main.js",
-    "screen": "node main.js"
+    "screen": "node main.js",
+    "test": "node test-env.js"
   },
   "repository": {
     "type": "git",
@@ -16,7 +17,11 @@
     "WebSite",
     "OpenSource"
   ],
-  "author": "Tai Tetsuyuki",
+  "author": {
+    "email": "contact@taistudio.fr",
+    "name": "Tai Studio",
+    "url": "https://taistudio.fr"
+  },
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/LeGitHubDeTai/ScreenWebSite/issues"
